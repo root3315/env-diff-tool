@@ -13,33 +13,61 @@ from pathlib import Path
 
 
 def parse_env_file(filepath):
-    """Parse an environment file and return a dictionary of key-value pairs."""
-    env_vars = OrderedDict()
+    """Parse an environment file and return a dictionary of key-value pairs.
     
+    Supports multi-line values enclosed in quotes.
+    """
+    env_vars = OrderedDict()
+
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"File not found: {filepath}")
-    
+
     with open(filepath, 'r') as f:
-        for line_num, line in enumerate(f, 1):
-            line = line.strip()
-            
-            if not line or line.startswith('#'):
+        lines = f.readlines()
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+
+        if not line or line.startswith('#'):
+            i += 1
+            continue
+
+        if '=' not in line:
+            i += 1
+            continue
+
+        key, _, value = line.partition('=')
+        key = key.strip()
+        value = value.strip()
+
+        if value.startswith('"') or value.startswith("'"):
+            quote_char = value[0]
+            if value.endswith(quote_char) and len(value) > 1:
+                complete_value = value[1:-1]
+                env_vars[key] = complete_value
+                i += 1
                 continue
             
-            if '=' not in line:
-                continue
+            value_lines = [value[1:]]
+            i += 1
             
-            key, _, value = line.partition('=')
-            key = key.strip()
-            value = value.strip()
+            while i < len(lines):
+                current_line = lines[i]
+                if current_line.strip() == quote_char:
+                    break
+                if current_line.rstrip().endswith(quote_char):
+                    value_lines.append(current_line.rstrip()[:-1])
+                    break
+                value_lines.append(current_line.rstrip())
+                i += 1
             
-            if value.startswith('"') and value.endswith('"'):
-                value = value[1:-1]
-            elif value.startswith("'") and value.endswith("'"):
-                value = value[1:-1]
-            
+            env_vars[key] = '\n'.join(value_lines)
+            i += 1
+        else:
             env_vars[key] = value
-    
+            i += 1
+
     return env_vars
 
 
@@ -93,6 +121,11 @@ def compare_envs(env1, env2):
 def format_value(value, max_length=60):
     """Format a value for display, truncating if necessary."""
     value_str = str(value)
+    if '\n' in value_str:
+        first_line = value_str.split('\n')[0]
+        if len(first_line) > max_length:
+            return first_line[:max_length - 3] + '...'
+        return first_line + ' [multi-line]'
     if len(value_str) > max_length:
         return value_str[:max_length - 3] + '...'
     return value_str

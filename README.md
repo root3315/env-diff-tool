@@ -162,7 +162,6 @@ DEBUG=true
 
 ## Limitations
 
-- Doesn't handle multi-line values (neither do I honestly)
 - No interactive mode (maybe someday)
 - Doesn't validate variable values, just compares them as strings
 
